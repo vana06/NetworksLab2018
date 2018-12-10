@@ -16,39 +16,39 @@ int main() {
 	char* buffer;
 	struct sockaddr_in serv_addr, cli_addr;
 
-	/* First call to socket() function */
+	// Сперва вызываем функцию socket()
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
+	//Если возникла ошибка открытия сокета то выходим из программы
 	if (sockfd < 0) {
 		perror("ERROR opening socket");
 		exit(1);
 	}
 
-	/* Initialize socket structure */
+	// Инициализируем структуру сокета
 	bzero((char *) &serv_addr, sizeof(serv_addr));
-	portno = 5001;
+	portno = 5001;	//указываем порт
+	//заносим данные в стуктуру сокета
+	serv_addr.sin_family = AF_INET; //семейство адресов
+	serv_addr.sin_addr.s_addr = INADDR_ANY; //IP
+	serv_addr.sin_port = htons(portno); //порт
 
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(portno);
-
+	//указываем дополнительные опции сокета для повторного открытия нового сокета на том же порту
 	//https://serverfault.com/questions/329845/how-to-forcibly-close-a-socket-in-time-wait
 	if(setsockopt(sockfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), &(int){ 1 }, sizeof(int)) < 0){
 		closeSocket((int[]){sockfd}, 1, "ERROR on setsockopt");
 	}
 
-	/* Now bind the host address using bind() call.*/
+	// Привязываем адрес через функцию bind()
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		closeSocket((int[]){sockfd}, 1, "ERROR on binding");
 	}
 
-	/* Now start listening for the clients, here process will
-	   * go in sleep mode and will wait for the incoming connection
-	*/
-
+	//слушаем клиентов, стэк установлен на 5 соединений
 	listen(sockfd, 5);
 	clilen = sizeof(cli_addr);
 
+	//создаем новую ветку программы которая ожидает нажатия клавиши q и зыкрывает сервер
 	if(fork() > 0){
 		close(sockfd);
 		while(getchar() != 'q'){
@@ -59,30 +59,32 @@ int main() {
 
 	while(1) {
 
-		/* Accept actual connection from the client */
+		// Принимаем соединение от клиента 
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-
+		//в случае оишибки закрываем сервер
 		if (newsockfd < 0) {
 			closeSocket((int[]){sockfd, newsockfd}, 1, "ERROR on accept");
 		}
-
+		//создаем новый потом
 		switch(fork()) {
 			case -1:
 				perror("ERROR on fork");
 				break;
 			case 0:
+				//дочерний поток работает с клиентом
 				close(sockfd);
-				/* If connection is established then start communicating */
+				//если соединение было установлено то начинаем общение
 				buffer = readAll((int[]){newsockfd, sockfd});
 
 				printf("Here is the message: %s\n", buffer);
 
-				/* Write a response to the client */
+				//отправляет клиенту ответ
 				sendAll((int[]){newsockfd, sockfd}, "I got your message");
-
+				//зываершаем дочерний поток
 				closeSocket((int[]){newsockfd}, 0, "");
 				break;
 			default:
+				//родительский поток продалжает ожидать новых клиентов
 				close(newsockfd);
 			}
 

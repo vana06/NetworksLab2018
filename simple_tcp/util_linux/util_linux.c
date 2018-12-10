@@ -1,5 +1,6 @@
 #include "util_linux.h"
 
+//функция закрытия сокетов и завершение программы
 void closeSocket(int socks[], int error, char* errorMsg){
 	if(strcmp(errorMsg,"") != 0){
 		perror(errorMsg);
@@ -11,7 +12,9 @@ void closeSocket(int socks[], int error, char* errorMsg){
 	}
 	exit(error);
 }
-
+//функция чтения сообщения
+//данная функция сперва считывает 4 байта в которых хранится длина последующего сообщения
+//затем считывается нужное количество байт указанное в предыдущем сообщении
 char* readAll(int socks[]){
 	char *buffer = (char*)calloc(256, sizeof(char));
 	if(buffer == NULL){
@@ -36,7 +39,9 @@ char* readAll(int socks[]){
 
 	return buffer;
 }
-
+//функция записи сообщения
+//сперва отправляет 4 байта длины последующего сообщения
+//затем отправляет само сообщение
 void sendAll(int socks[], char* buffer){
 	int messageLength = strlen(buffer);
 	char toSend[4 + 256];
